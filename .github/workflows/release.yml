@@ -35,11 +35,15 @@ jobs:
 
       - name: show runner file and release runner disk space 
         run: |
-          set +x
+          echo “show runner hostname”
           hostname
+          echo “show runner user”
           whoami
+          echo “show runner pwd”
           pwd
-          echo "show disk usage BEFORE delete"
+          echo “show runner kernel”
+          uname -a
+          echo "show runner disk usage BEFORE delete"
           df -h /
           echo "show disk usage BEFORE delete"
           du -h -d 1 /usr/local | grep G || echo "skip error"
@@ -50,20 +54,21 @@ jobs:
           echo "show disk usage BEFORE delete"
           echo "show removed directories disk usage"
           du -h -d 0 /usr/share/dotnet/   || echo "dir not exist"
-          du -h -d 0  /usr/local/.ghcup/  || echo "dir not exist"
-          du -h -d 0  /usr/local/share/powershell/  || echo "dir not exist"
-          du -h -d 0  /usr/local/share/chromium/  || echo "dir not exist"
-          du -h -d 0  /usr/local/lib/android/  || echo "dir not exist"
-          du -h -d 0  /usr/local/lib/swift/  || echo "dir not exist"
-          du -h -d 0  /usr/local/lib/node_modules/  || echo "dir not exist"
-          du -h -d 0  /opt/hostedtoolcache/  || echo "dir not exist"
+          du -h -d 0 /usr/share/swift/  || echo "dir not exist"
+          du -h -d 0 /usr/local/.ghcup/  || echo "dir not exist"
+          du -h -d 0 /usr/local/share/powershell/  || echo "dir not exist"
+          du -h -d 0 /usr/local/share/chromium/  || echo "dir not exist"
+          du -h -d 0 /usr/local/lib/android/  || echo "dir not exist"
+          du -h -d 0 /usr/local/lib/node_modules/  || echo "dir not exist"
+          du -h -d 0 /opt/hostedtoolcache/  || echo "dir not exist"
           ls  /opt/hostedtoolcache  || echo "dir not exist"
           ls  /opt/microsoft  || echo "dir not exist"
+          echo “show /home/ dir in runner”
           ls /home/
+          echo “show /home/runner/ dir in runner”
           ls -alht /home/runner/  || echo "dir not exist"
+          echo “show /home/runner/work/ dir in runner”
           ls -alht /home/runner/work/  || echo "dir not exist"
-          ls -alht /github/ || echo "dir not exist"
-          ls -alht /github/workspace/ || echo "dir not exist"
 
       - name: Free Disk Space (Ubuntu)
         uses: jlumbroso/free-disk-space@main
@@ -71,7 +76,6 @@ jobs:
           # this might remove tools that are actually needed,
           # if set to "true" but frees about 6 GB
           tool-cache: true
-        
           # all of these default to true, but feel free to set to
           # "false" if necessary for your workflow
           android: true
@@ -82,10 +86,14 @@ jobs:
       
       - name: Delete file and release runner disk space 
         run: |
-          set +x
+          echo “show runner hostname”
           hostname
+          echo “show runner user”
           whoami
+          echo “show runner pwd”
           pwd
+          echo “show runner kernel”
+          uname -a
           echo "show disk usage BEFORE delete"
           df -h /
           echo "Removing large directories"
@@ -135,6 +143,7 @@ jobs:
           git config --global --add safe.directory $PWD
           git config --global --add safe.directory $PWD/k230_sdk
           git config --global --add safe.directory $PWD/micropython
+          git config --global --add safe.directory $PWD/micropython_port/lvgl/lv_binding_micropython
           git config --global --list
           ls -alht
           echo "download toolchain and build env"
@@ -153,10 +162,14 @@ jobs:
       
       - name: Build with docker
         run: |
+          echo “show runner hostname”
           hostname
+          echo “show runner user”
           whoami
+          echo “show runner pwd”
           pwd
-          ls
+          echo “show runner kernel”
+          uname -a
           docker run \
             --workdir $PWD \
             --name k230_sdk \
@@ -165,17 +178,33 @@ jobs:
             --volume /home/:/home \
             --volume /opt:/opt \
             ghcr.io/kendryte/k230_sdk:latest \
-            /bin/bash  -c "pwd; whoami; ls -alht;echo 'start to build k230 canmv image'; time make CONF=$CONF || exit 1;echo '---show output---';ls -alht output/${CONF}/images || exit 1"
+            /bin/bash  -c "pwd; ls -alht; \
+              echo “show docker hostname”;hostname;  \
+              echo “show docker user”;whoami;  \
+              echo 'start to build k230 canmv image'; \
+              git config --global --add safe.directory $PWD; \
+              git config --global --add safe.directory $PWD/k230_sdk \
+              git config --global --add safe.directory $PWD/micropython
+              git config --global --add safe.directory $PWD/micropython_port/lvgl/lv_binding_micropython \
+              time make CONF=$CONF || exit 1; \
+              echo '---show docker build output---';\
+              ls -alht output/${CONF}/images || exit 1"
 
       - name: Show Output Directory For Debug Purpose
         run: |
+          echo “show runner hostname”
           hostname
+          echo “show runner user”
           whoami
+          echo “show runner pwd”
           pwd
+          echo “show runner kernel”
+          uname -a
+          echo “show runner pwd file list”
           ls
           ls -alht output/${CONF}/images/
           # Copy compiled files to /github/workspace/artifacts
-          mkdir -p /github/workspace/artifacts
+          sudo mkdir -p /github/workspace/artifacts
           cp output/${CONF}/images/*.img.gz /github/workspace/artifacts/
           ls -alht /github/workspace/artifacts/
         shell: bash
@@ -205,8 +234,18 @@ jobs:
 
       - name: Show Working Directory For Debug Purpose
         run: |
+          echo “show runner hostname”
+          hostname
+          echo “show runner user”
+          whoami
+          echo “show runner pwd”
           pwd
+          echo “show runner kernel”
+          uname -a
+          echo “show runner pwd file list”
+          ls
           ls -alht
+          echo “show runner artifacts”
           ls -alht artifacts || exit 0
 
       - name: Upload images to Release Asset
