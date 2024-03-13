@@ -17,20 +17,84 @@ defaults:
 
 jobs:
   build_image:
-    name: Build
+    name: Runner Test
     runs-on: [ubuntu-latest]
     timeout-minutes: 180
-    container:
-      image: ghcr.io/kendryte/k230_sdk:latest
-      env:
-        CONF: k230_${{ matrix.cfg }}_defconfig
-      options: --hostname release --user root
     strategy:
       matrix:
         cfg: ["canmv"]
+    env:
+        CONF: k230_${{ matrix.cfg }}_defconfig
     steps:
       - name: Check for dockerenv
         run: (ls /.dockerenv && echo Found dockerenv) || (echo No dockerenv)
+
+      - name: show runner file and release runner disk space 
+        run: |
+          set +x
+          hostname
+          whoami
+          pwd
+          echo "show disk usage BEFORE delete"
+          df -h /
+          echo "show disk usage BEFORE delete"
+          du -h -d 1 /usr/local | grep G || echo "skip error"
+          du -h -d 1 /usr/local/lib | grep G || echo "skip error"
+          du -h -d 1 /usr/share | grep G || echo "skip error"
+          du -h -d 1 /opt/ | grep G || echo "skip error"
+          du -h -d 1 /opt/hostedtoolcache | grep G || echo "skip error"
+          echo "show disk usage BEFORE delete"
+          echo "show removed directories disk usage"
+          du -h -d 0 /usr/share/dotnet/   || echo "dir not exist"
+          du -h -d 0  /usr/local/.ghcup/  || echo "dir not exist"
+          du -h -d 0  /usr/local/share/powershell/  || echo "dir not exist"
+          du -h -d 0  /usr/local/share/chromium/  || echo "dir not exist"
+          du -h -d 0  /usr/local/lib/android/  || echo "dir not exist"
+          du -h -d 0  /usr/local/lib/swift/  || echo "dir not exist"
+          du -h -d 0  /usr/local/lib/node_modules/  || echo "dir not exist"
+          du -h -d 0  /opt/hostedtoolcache/  || echo "dir not exist"
+          ls  /opt/hostedtoolcache  || echo "dir not exist"
+          ls  /opt/microsoft  || echo "dir not exist"
+          ls /home/
+          ls -alht /home/runner/  || echo "dir not exist"
+          ls -alht /home/runner/work/  || echo "dir not exist"
+          ls -alht /github/ || echo "dir not exist"
+          ls -alht /github/workspace/ || echo "dir not exist"
+
+      - name: Free Disk Space (Ubuntu)
+        uses: jlumbroso/free-disk-space@main
+        with:
+          # this might remove tools that are actually needed,
+          # if set to "true" but frees about 6 GB
+          tool-cache: true
+        
+          # all of these default to true, but feel free to set to
+          # "false" if necessary for your workflow
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          swap-storage: true
+      
+      - name: Delete file and release runner disk space 
+        run: |
+          set +x
+          hostname
+          whoami
+          pwd
+          echo "show disk usage BEFORE delete"
+          df -h /
+          echo "Removing large directories"
+          sudo rm -rf /usr/share/dotnet/ || echo "remove dotnet failed"
+          sudo rm -rf /usr/share/swift/ || echo "remove dotnet failed"
+          sudo rm -rf /usr/local/.ghcup/ || echo "remove ghcup failed"
+          sudo rm -rf /usr/local/share/powershell || echo "remove powershell failed"
+          sudo rm -rf /usr/local/share/chromium || echo "remove chromium failed"
+          sudo rm -rf /usr/local/lib/android || echo "remove android failed"
+          sudo rm -rf /usr/local/lib/node_modules || echo "remove node_modules failed"
+          sudo rm -rf /opt/hostedtoolcache || echo "remove hostedtoolcache failed"
+          echo "show disk usage AFTER delete"
+          df -h /
 
       - name: Install Nvm/Node for Actions Checkout Env
         run: |
@@ -49,7 +113,7 @@ jobs:
         with:
           fetch-depth: 0
           clean: true
-          submodules: recursive
+          submodules: true
 
       - name: Download Toolchain and Setup Build Env
         run: |
@@ -79,20 +143,29 @@ jobs:
           ls -alht /opt/toolchain/ || exit 1
           ls -alht /opt/toolchain/Xuantie-900-gcc-linux* || exit 1
           ls -alht /opt/toolchain/riscv64-linux* || exit 1
-
-      - name: Build image
+      
+      - name: Build with docker
         run: |
+          hostname
+          whoami
           pwd
-          ls -alht
-          echo "start to build k230 canmv image"
-          time make CONF=$CONF || exit 1
-          echo "---show output---"
-          ls -alht output/${CONF}/images || exit 1
+          ls
+          docker run \
+            --workdir $PWD \
+            --name k230_sdk \
+            --hostname release \
+            --user root \
+            --volume /home/:/home \
+            --volume /opt:/opt \
+            ghcr.io/kendryte/k230_sdk:latest \
+            /bin/bash  -c "pwd; whoami; ls -alht;echo 'start to build k230 canmv image'; time make CONF=$CONF || exit 1;echo '---show output---';ls -alht output/${CONF}/images || exit 1"
 
       - name: Show Output Directory For Debug Purpose
         run: |
+          hostname
+          whoami
           pwd
-          ls -alht
+          ls
           ls -alht output/${CONF}/images/
           # Copy compiled files to /github/workspace/artifacts
           mkdir -p /github/workspace/artifacts
@@ -135,4 +208,4 @@ jobs:
           files: artifacts/*
         env:
           GITHUB_TOKEN: ${{ secrets.CR_PAT }}
-
+  
