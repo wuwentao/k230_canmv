@@ -179,6 +179,7 @@ jobs:
             --volume /opt:/opt \
             ghcr.io/kendryte/k230_sdk:latest \
             /bin/bash  -c "pwd; ls -alht; \
+              (ls /.dockerenv && echo Found dockerenv) || (echo No dockerenv); \
               echo 'show docker hostname';hostname;  \
               echo 'show docker user';whoami;  \
               echo 'start to build k230 canmv image'; \
@@ -205,6 +206,8 @@ jobs:
           ls -alht output/${CONF}/images/
           # Copy compiled files to /github/workspace/artifacts
           sudo mkdir -p /github/workspace/artifacts
+          sudo chown -R $(id -u):$(id-g) /github/workspace/artifacts
+          sudo chmod -R 755 /github/workspace/artifacts
           cp output/${CONF}/images/*.img.gz /github/workspace/artifacts/
           ls -alht /github/workspace/artifacts/
         shell: bash
