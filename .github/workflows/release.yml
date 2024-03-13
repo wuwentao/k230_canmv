@@ -261,3 +261,77 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.CR_PAT }}
   
+  pre_release:
+    needs: build_image
+    name: CanMV Dev Branch PreRelease
+    if: ${{ github.ref == 'dev' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download All Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          pattern: artifacts-*
+          merge-multiple: true
+
+      - name: Display Structure of Artifacts Files
+        run: ls -R
+
+      - name: Show Working Directory For Debug Purpose
+        run: |
+          echo “show runner hostname”
+          hostname
+          echo “show runner user”
+          whoami
+          echo “show runner pwd”
+          pwd
+          echo “show runner kernel”
+          uname -a
+          echo “show runner pwd file list”
+          ls
+          ls -alht
+          echo “show runner artifacts”
+          ls -alht artifacts || exit 0
+          
+      - name: Delete current prerelease assets
+        uses: andreaswilli/delete-release-assets-action@<version>
+        with:
+          github_token: ${{ secrets.CR_PAT }}
+          tagPrefix: PreRelease-
+      
+      - name: Set Env
+        run: |
+          echo "BUILDTIME=$(TZ=Asia/Shanghai date)" >> $GITHUB_ENV
+        
+      - name: Tag Repo
+        uses: richardsimko/update-tag@v1
+        with:
+          tag_name: Prerelease-${{ github.ref_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.CR_PAT }}
+
+      - name: Set Relese Txt
+        run: |
+          cat > release.txt << 'EOF'
+          PreRelease created at  ${{ env.BUILDTIME }}
+          Synchronize ${{ github.ref_name }} branch code updates, keeping only the latest version
+          <br>
+          [K230_CANMV](https://github.com/kendryte/k230_canmv)
+          [K230_CANMV_DOCS](https://github.com/kendryte/k230_canmv_docs)
+          [K230_SDK](https://github.com/kendryte/k230_sdk)
+          [K230_SDK_DOCS](https://github.com/kendryte/k230_sdk_docs)
+          EOF
+
+      - name: Upload images to PreRelease Asset
+        uses: softprops/action-gh-release@v1
+        if: ${{  success() }}
+        with:
+          tag_name: Prerelease-${{ github.ref_name }}
+          files: |
+            artifacts/*
+          prerelease: true
+          generate_release_notes: true
+          body_path: release.txt
+        env:
+          GITHUB_TOKEN: ${{ secrets.CR_PAT }}
+  
