@@ -179,15 +179,15 @@ jobs:
             --volume /opt:/opt \
             ghcr.io/kendryte/k230_sdk:latest \
             /bin/bash  -c "pwd; ls -alht; \
-              echo “show docker hostname”;hostname;  \
-              echo “show docker user”;whoami;  \
+              echo 'show docker hostname';hostname;  \
+              echo 'show docker user';whoami;  \
               echo 'start to build k230 canmv image'; \
               git config --global --add safe.directory $PWD; \
-              git config --global --add safe.directory $PWD/k230_sdk \
-              git config --global --add safe.directory $PWD/micropython
-              git config --global --add safe.directory $PWD/micropython_port/lvgl/lv_binding_micropython \
+              git config --global --add safe.directory $PWD/k230_sdk; \
+              git config --global --add safe.directory $PWD/micropython; \
+              git config --global --add safe.directory $PWD/micropython_port/lvgl/lv_binding_micropython; \
               time make CONF=$CONF || exit 1; \
-              echo '---show docker build output---';\
+              echo '---show docker build output---'; \
               ls -alht output/${CONF}/images || exit 1"
 
       - name: Show Output Directory For Debug Purpose
