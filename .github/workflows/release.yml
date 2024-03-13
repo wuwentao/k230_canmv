@@ -206,7 +206,7 @@ jobs:
           ls -alht output/${CONF}/images/
           # Copy compiled files to /github/workspace/artifacts
           sudo mkdir -p /github/workspace/artifacts
-          sudo chown -R $(id -u):$(id-g) /github/workspace/artifacts
+          sudo chown -R $(id -u):$(id -g) /github/workspace/artifacts
           sudo chmod -R 755 /github/workspace/artifacts
           cp output/${CONF}/images/*.img.gz /github/workspace/artifacts/
           ls -alht /github/workspace/artifacts/
