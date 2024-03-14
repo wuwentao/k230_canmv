@@ -47,12 +47,18 @@ jobs:
           df -h /
           echo "show disk usage BEFORE delete"
           ls
+          # Copy compiled files to /github/workspace/artifacts
+          sudo mkdir -p /github/workspace/artifacts
+          sudo chown -R $(id -u):$(id -g) /github/workspace/artifacts
+          sudo chmod -R 755 /github/workspace/artifacts
+          cp /home/runner/work/k230_canmv/k230_canmv/Makefile /github/workspace/artifacts/
+          ls -alht /github/workspace/artifacts/
       
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: artifacts-${{ matrix.cfg }}
-          path: /home/runner/work/k230_canmv/k230_canmv/Makefile
+          path: /github/workspace/artifacts/
 
   upload_release:
     needs: build_image
