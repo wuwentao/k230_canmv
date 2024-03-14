@@ -64,7 +64,7 @@ jobs:
   upload_release:
     needs: build_image
     name: CanMV Release
-    if: ${{ startsWith(github.ref, 'refs/tags/') }}
+    if: ${{ startsWith(github.ref, 'refs/tags/v') }}
     runs-on: ubuntu-latest
     steps:
 
@@ -104,7 +104,8 @@ jobs:
   
   pre_release:
     needs: build_image
-    name: CanMV Dev Branch PreRelease
+    name: CanMV PreRelease
+    if: ${{ github.ref_name == 'dev' }}
     runs-on: ubuntu-latest
     steps:
       - name: Download All Artifacts
