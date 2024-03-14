@@ -253,6 +253,7 @@ jobs:
           ls -alht
           echo “show runner artifacts”
           ls -alht artifacts || exit 0
+          echo "github.ref: ${{github.ref}} "
 
       - name: Upload images to Release Asset
         uses: softprops/action-gh-release@v1
@@ -264,7 +265,6 @@ jobs:
   pre_release:
     needs: build_image
     name: CanMV Dev Branch PreRelease
-    if: ${{ github.ref == 'dev' }}
     runs-on: ubuntu-latest
     steps:
       - name: Download All Artifacts
