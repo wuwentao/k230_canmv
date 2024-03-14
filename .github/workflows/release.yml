@@ -45,21 +45,181 @@ jobs:
           uname -a
           echo "show runner disk usage BEFORE delete"
           df -h /
-          echo "show current file"
+          echo "show disk usage BEFORE delete"
+          du -h -d 1 /usr/local | grep G || echo "skip error"
+          du -h -d 1 /usr/local/lib | grep G || echo "skip error"
+          du -h -d 1 /usr/share | grep G || echo "skip error"
+          du -h -d 1 /opt/ | grep G || echo "skip error"
+          du -h -d 1 /opt/hostedtoolcache | grep G || echo "skip error"
+          echo "show disk usage BEFORE delete"
+          echo "show removed directories disk usage"
+          du -h -d 0 /usr/share/dotnet/   || echo "dir not exist"
+          du -h -d 0 /usr/share/swift/  || echo "dir not exist"
+          du -h -d 0 /usr/local/.ghcup/  || echo "dir not exist"
+          du -h -d 0 /usr/local/share/powershell/  || echo "dir not exist"
+          du -h -d 0 /usr/local/share/chromium/  || echo "dir not exist"
+          du -h -d 0 /usr/local/lib/android/  || echo "dir not exist"
+          du -h -d 0 /usr/local/lib/node_modules/  || echo "dir not exist"
+          du -h -d 0 /opt/hostedtoolcache/  || echo "dir not exist"
+          ls  /opt/hostedtoolcache  || echo "dir not exist"
+          ls  /opt/microsoft  || echo "dir not exist"
+          echo “show /home/ dir in runner”
+          ls /home/
+          echo “show /home/runner/ dir in runner”
+          ls -alht /home/runner/  || echo "dir not exist"
+          echo “show /home/runner/work/ dir in runner”
+          ls -alht /home/runner/work/  || echo "dir not exist"
+
+      - name: Free Disk Space (Ubuntu)
+        uses: jlumbroso/free-disk-space@main
+        with:
+          # this might remove tools that are actually needed,
+          # if set to "true" but frees about 6 GB
+          tool-cache: true
+          # all of these default to true, but feel free to set to
+          # "false" if necessary for your workflow
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          swap-storage: true
+      
+      - name: Delete file and release runner disk space 
+        run: |
+          echo “show runner hostname”
+          hostname
+          echo “show runner user”
+          whoami
+          echo “show runner pwd”
+          pwd
+          echo “show runner kernel”
+          uname -a
+          echo "show disk usage BEFORE delete"
+          df -h /
+          echo "Removing large directories"
+          sudo rm -rf /usr/share/dotnet/ || echo "remove dotnet failed"
+          sudo rm -rf /usr/share/swift/ || echo "remove dotnet failed"
+          sudo rm -rf /usr/local/.ghcup/ || echo "remove ghcup failed"
+          sudo rm -rf /usr/local/share/powershell || echo "remove powershell failed"
+          sudo rm -rf /usr/local/share/chromium || echo "remove chromium failed"
+          sudo rm -rf /usr/local/lib/android || echo "remove android failed"
+          sudo rm -rf /usr/local/lib/node_modules || echo "remove node_modules failed"
+          sudo rm -rf /opt/hostedtoolcache || echo "remove hostedtoolcache failed"
+          echo "show disk usage AFTER delete"
+          df -h /
+
+      - name: Install Nvm/Node for Actions Checkout Env
+        run: |
+          pwd
+          ls -alht
+          export NVM_DIR="$HOME/.nvm" && (
+            git clone https://github.com/nvm-sh/nvm.git "$NVM_DIR"
+            cd "$NVM_DIR"
+            git checkout `git describe --abbrev=0 --tags --match "v[0-9]*" $(git rev-list --tags --max-count=1)`
+          ) && \. "$NVM_DIR/nvm.sh"
+          nvm install node || exit 1
+          node --version || exit 1
+
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          clean: true
+          submodules: recursive
+
+      - name: Download Toolchain and Setup Build Env
+        run: |
+          ls -alht micropython
+          ls -alht k230_sdk
+          pwd
+          echo "manual update micropython submodules directly from github and skip local mirror download"
+          cd micropython || exit 1
+          git submodule update --recursive --init || exit 1
+          cd ../ || exit 1
+          cd micropython_port || exit 1
+          git submodule update --recursive --init || exit 1
+          cd ../ || exit 1
+          echo "add safe dir for prepare_sourcecode use git command with permission error"
+          git config --global --add safe.directory $PWD
+          git config --global --add safe.directory $PWD/k230_sdk
+          git config --global --add safe.directory $PWD/micropython
+          git config --global --add safe.directory $PWD/micropython_port/lvgl/lv_binding_micropython
+          git config --global --list
+          ls -alht
+          echo "download toolchain and build env"
+          time make prepare_sourcecode FAST_DL=0 || exit 1
+          ls -alht
+          mkdir -p /opt/ || exit 1
+          rm -rf /opt/toolchain/
+          echo "show PWD toolchain"
+          ls -alht $PWD/k230_sdk/toolchain/ || exit 1
+          echo "link ./k230_sdk/toolchain to /opt/toolchain"
+          ln -s $PWD/k230_sdk/toolchain /opt/ || exit 1
+          echo "show /opt/toolchain/"
+          ls -alht /opt/toolchain/ || exit 1
+          ls -alht /opt/toolchain/Xuantie-900-gcc-linux* || exit 1
+          ls -alht /opt/toolchain/riscv64-linux* || exit 1
+      
+      - name: Build with docker
+        run: |
+          echo “show runner hostname”
+          hostname
+          echo “show runner user”
+          whoami
+          echo “show runner pwd”
+          pwd
+          echo “show runner kernel”
+          uname -a
+          docker run \
+            --workdir $PWD \
+            --name k230_sdk \
+            --hostname release \
+            --user root \
+            --volume /home/:/home \
+            --volume /opt:/opt \
+            ghcr.io/kendryte/k230_sdk:latest \
+            /bin/bash  -c "pwd; ls -alht; \
+              (ls /.dockerenv && echo Found dockerenv) || (echo No dockerenv); \
+              echo 'show docker hostname';hostname;  \
+              echo 'show docker user';whoami;  \
+              echo 'start to build k230 canmv image'; \
+              git config --global --add safe.directory $PWD; \
+              git config --global --add safe.directory $PWD/k230_sdk; \
+              git config --global --add safe.directory $PWD/micropython; \
+              git config --global --add safe.directory $PWD/micropython_port/lvgl/lv_binding_micropython; \
+              time make CONF=$CONF || exit 1; \
+              echo '---show docker build output---'; \
+              ls -alht output/${CONF}/images || exit 1"
+
+      - name: Show Output Directory For Debug Purpose
+        run: |
+          echo “show runner hostname”
+          hostname
+          echo “show runner user”
+          whoami
+          echo “show runner pwd”
+          pwd
+          echo “show runner kernel”
+          uname -a
+          echo “show runner pwd file list”
           ls
-          echo "${{ github.ref_name }} branch relese commit id ${{github.sha}}"  > release.txt
+          ls -alht output/${CONF}/images/
+          echo "k230 sdk version:"
+          cat output/${CONF}/images/little-core/rootfs/etc/version/release_version || echo "k230 sdk version file not exist"
           # Copy compiled files to /github/workspace/artifacts
           sudo mkdir -p /github/workspace/artifacts
           sudo chown -R $(id -u):$(id -g) /github/workspace/artifacts
           sudo chmod -R 755 /github/workspace/artifacts
-          cp release.txt /github/workspace/artifacts/
+          cp output/${CONF}/images/CanMV*.img.gz /github/workspace/artifacts/
+          cp output/${CONF}/images/little-core/rootfs/etc/version/release_version /github/workspace/artifacts/k230_sdk_version.txt || echo "k230 sdk version file not exist"
           ls -alht /github/workspace/artifacts/
-      
+        shell: bash
+
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: artifacts-${{ matrix.cfg }}
-          path: /github/workspace/artifacts/
+          path: /github/workspace/artifacts
 
   upload_release:
     needs: build_image
@@ -96,7 +256,7 @@ jobs:
           echo "github.ref: ${{github.ref}} "
 
       - name: Upload images to Release Asset
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: artifacts/*
         env:
@@ -167,7 +327,7 @@ jobs:
           EOF
 
       - name: Upload images to PreRelease Asset
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         if: ${{  success() }}
         with:
           tag_name: PreRelease-${{ github.ref_name }}
