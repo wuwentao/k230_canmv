@@ -127,7 +127,7 @@ jobs:
           ls -alht artifacts || exit 0
           
       - name: Delete current prerelease assets
-        uses: andreaswilli/delete-release-assets-action@4.0.0
+        uses: andreaswilli/delete-release-assets-action@main
         with:
           github_token: ${{ secrets.CR_PAT }}
           tagPrefix: PreRelease-
