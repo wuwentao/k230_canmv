@@ -45,13 +45,14 @@ jobs:
           uname -a
           echo "show runner disk usage BEFORE delete"
           df -h /
-          echo "show disk usage BEFORE delete"
+          echo "show current file"
           ls
+          echo "${{ github.ref_name }} branch relese commit id ${{github.ref}}"  > release.txt
           # Copy compiled files to /github/workspace/artifacts
           sudo mkdir -p /github/workspace/artifacts
           sudo chown -R $(id -u):$(id -g) /github/workspace/artifacts
           sudo chmod -R 755 /github/workspace/artifacts
-          cp /home/runner/work/k230_canmv/k230_canmv/Makefile /github/workspace/artifacts/
+          cp release.txt /github/workspace/artifacts/
           ls -alht /github/workspace/artifacts/
       
       - name: Upload Artifacts
@@ -137,7 +138,7 @@ jobs:
         with:
           github_token: ${{ secrets.CR_PAT }}
           tagPrefix: 'PreRelease-'
-          tag: '*'
+          tag: ${{ github.ref_name }}
           deleteOnlyFromDrafts: true
       
       - name: Set Env
