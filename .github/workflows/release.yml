@@ -96,7 +96,7 @@ jobs:
           echo "github.ref: ${{github.ref}} "
 
       - name: Upload images to Release Asset
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: artifacts/*
         env:
@@ -167,7 +167,7 @@ jobs:
           EOF
 
       - name: Upload images to PreRelease Asset
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         if: ${{  success() }}
         with:
           tag_name: Prerelease-${{ github.ref_name }}
