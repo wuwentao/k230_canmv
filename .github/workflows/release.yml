@@ -1,8 +1,19 @@
+# https://github.com/orgs/community/discussions/25678
+# https://github.com/orgs/community/discussions/25084
+# https://github.com/jlumbroso/free-disk-space
+# https://github.com/jlumbroso/free-disk-space
 name: K230 CanMV Release
 
 on:
   release:
     types: [released]
+  push:
+    branches:
+      - dev
+  pull_request:
+    branches:
+      - main
+      - dev
 
 defaults:
   run:
@@ -10,98 +21,50 @@ defaults:
 
 jobs:
   build_image:
-    name: Build
+    name: CanMV Build
     runs-on: [ubuntu-latest]
     timeout-minutes: 180
-    container:
-      image: ghcr.io/kendryte/k230_sdk:latest
-      env:
-        CONF: k230_${{ matrix.cfg }}_defconfig
-      options: --hostname release --user root
     strategy:
       matrix:
         cfg: ["canmv"]
+    env:
+        CONF: k230_${{ matrix.cfg }}_defconfig
     steps:
       - name: Check for dockerenv
         run: (ls /.dockerenv && echo Found dockerenv) || (echo No dockerenv)
 
-      - name: Install Nvm/Node for Actions Checkout Env
+      - name: show runner file and release runner disk space 
         run: |
+          echo “show runner hostname”
+          hostname
+          echo “show runner user”
+          whoami
+          echo “show runner pwd”
           pwd
-          ls -alht
-          export NVM_DIR="$HOME/.nvm" && (
-            git clone https://github.com/nvm-sh/nvm.git "$NVM_DIR"
-            cd "$NVM_DIR"
-            git checkout `git describe --abbrev=0 --tags --match "v[0-9]*" $(git rev-list --tags --max-count=1)`
-          ) && \. "$NVM_DIR/nvm.sh"
-          nvm install node || exit 1
-          node --version || exit 1
-
-      - name: Checkout Source Code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          clean: true
-          submodules: true
-
-      - name: Download Toolchain and Setup Build Env
-        run: |
-          ls -alht micropython
-          ls -alht k230_sdk
-          pwd
-          echo "manual update micropython submodules directly from github and skip local mirror download"
-          cd micropython || exit 1
-          git submodule update --recursive --init || exit 1
-          cd ../ || exit 1
-          echo "add safe dir for prepare_sourcecode use git command with permission error"
-          git config --global --add safe.directory $PWD
-          git config --global --add safe.directory $PWD/k230_sdk
-          git config --global --add safe.directory $PWD/micropython
-          git config --global --list
-          ls -alht
-          echo "download toolchain and build env"
-          time make prepare_sourcecode FAST_DL=0 || exit 1
-          ls -alht
-          mkdir -p /opt/ || exit 1
-          rm -rf /opt/toolchain/
-          echo "show PWD toolchain"
-          ls -alht $PWD/k230_sdk/toolchain/ || exit 1
-          echo "link ./k230_sdk/toolchain to /opt/toolchain"
-          ln -s $PWD/k230_sdk/toolchain /opt/ || exit 1
-          echo "show /opt/toolchain/"
-          ls -alht /opt/toolchain/ || exit 1
-          ls -alht /opt/toolchain/Xuantie-900-gcc-linux* || exit 1
-          ls -alht /opt/toolchain/riscv64-linux* || exit 1
-
-      - name: Build image
-        run: |
-          pwd
-          ls -alht
-          echo "start to build k230 canmv image"
-          time make CONF=$CONF || exit 1
-          echo "---show output---"
-          ls -alht output/${CONF}/images || exit 1
-
-      - name: Show Output Directory For Debug Purpose
-        run: |
-          pwd
-          ls -alht
-          ls -alht output/${CONF}/images/
+          echo “show runner kernel”
+          uname -a
+          echo "show runner disk usage BEFORE delete"
+          df -h /
+          echo "show current file"
+          ls
+          echo "${{ github.ref_name }} branch relese commit id ${{github.sha}}"  > release.txt
           # Copy compiled files to /github/workspace/artifacts
-          mkdir -p /github/workspace/artifacts
-          cp output/${CONF}/images/*.img.gz /github/workspace/artifacts/
+          sudo mkdir -p /github/workspace/artifacts
+          sudo chown -R $(id -u):$(id -g) /github/workspace/artifacts
+          sudo chmod -R 755 /github/workspace/artifacts
+          cp release.txt /github/workspace/artifacts/
           ls -alht /github/workspace/artifacts/
-        shell: bash
-
+      
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: artifacts-${{ matrix.cfg }}
-          path: /github/workspace/artifacts
+          path: /github/workspace/artifacts/
 
   upload_release:
     needs: build_image
-    name: Release
+    name: CanMV Release
+    if: ${{ startsWith(github.ref, 'refs/tags/') }}
     runs-on: ubuntu-latest
     steps:
 
@@ -117,10 +80,20 @@ jobs:
 
       - name: Show Working Directory For Debug Purpose
         run: |
+          echo “show runner hostname”
+          hostname
+          echo “show runner user”
+          whoami
+          echo “show runner pwd”
           pwd
+          echo “show runner kernel”
+          uname -a
+          echo “show runner pwd file list”
+          ls
           ls -alht
+          echo “show runner artifacts”
           ls -alht artifacts || exit 0
-        shell: bash
+          echo "github.ref: ${{github.ref}} "
 
       - name: Upload images to Release Asset
         uses: softprops/action-gh-release@v1
@@ -128,4 +101,80 @@ jobs:
           files: artifacts/*
         env:
           GITHUB_TOKEN: ${{ secrets.CR_PAT }}
+  
+  pre_release:
+    needs: build_image
+    name: CanMV Dev Branch PreRelease
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download All Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          pattern: artifacts-*
+          merge-multiple: true
 
+      - name: Display Structure of Artifacts Files
+        run: ls -R
+
+      - name: Show Working Directory For Debug Purpose
+        run: |
+          echo “show runner hostname”
+          hostname
+          echo “show runner user”
+          whoami
+          echo “show runner pwd”
+          pwd
+          echo “show runner kernel”
+          uname -a
+          echo “show runner pwd file list”
+          ls
+          ls -alht
+          echo “show runner artifacts”
+          ls -alht artifacts || exit 0
+          
+      - name: Delete current prerelease assets
+        uses: andreaswilli/delete-release-assets-action@main
+        with:
+          github_token: ${{ secrets.CR_PAT }}
+          tagPrefix: 'PreRelease-'
+          tag: ${{ github.ref_name }}
+          deleteOnlyFromDrafts: true
+      
+      - name: Set Env
+        run: |
+          echo "BUILDTIME=$(TZ=Asia/Shanghai date)" >> $GITHUB_ENV
+        
+      - name: Tag Repo
+        uses: richardsimko/update-tag@v1
+        with:
+          tag_name: PreRelease-${{ github.ref_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.CR_PAT }}
+
+      - name: Set Relese Txt
+        run: |
+          cat > prerelease.txt << 'EOF'
+          Pre Release基于开发分支dev branch自动编译，并自动删除旧的编译，只保留当前最新的编译镜像，仅供测试使用
+          Pre Release build with ${{ github.ref_name }} branch latest code updates, it will automatic delete old image and only keeping the latest version.
+          Current ${{ github.ref_name }} branch build at ${{ env.BUILDTIME }} , git commit id ${{ github.sha }}
+          <br>
+          [k230_canmv](https://github.com/kendryte/k230_canmv)
+          [k230_canmv_docs](https://github.com/kendryte/k230_canmv_docs)
+          [k230_sdk](https://github.com/kendryte/k230_sdk)
+          [k230_sdk_docs](https://github.com/kendryte/k230_sdk_docs)
+          EOF
+
+      - name: Upload images to PreRelease Asset
+        uses: softprops/action-gh-release@v1
+        if: ${{  success() }}
+        with:
+          tag_name: Prerelease-${{ github.ref_name }}
+          files: |
+            artifacts/*
+          prerelease: true
+          generate_release_notes: true
+          body_path: prerelease.txt
+        env:
+          GITHUB_TOKEN: ${{ secrets.CR_PAT }}
+  
