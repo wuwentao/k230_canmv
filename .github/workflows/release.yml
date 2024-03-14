@@ -148,7 +148,7 @@ jobs:
       - name: Tag Repo
         uses: richardsimko/update-tag@v1
         with:
-          tag_name: Prerelease-${{ github.ref_name }}
+          tag_name: PreRelease-${{ github.ref_name }}
         env:
           GITHUB_TOKEN: ${{ secrets.CR_PAT }}
 
