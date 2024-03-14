@@ -52,7 +52,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: artifacts-${{ matrix.cfg }}
-          path: Makefile
+          path: /home/runner/work/k230_canmv/k230_canmv/Makefile
 
   upload_release:
     needs: build_image
@@ -130,7 +130,9 @@ jobs:
         uses: andreaswilli/delete-release-assets-action@main
         with:
           github_token: ${{ secrets.CR_PAT }}
-          tagPrefix: PreRelease-
+          tagPrefix: 'PreRelease-'
+          tag: '*'
+          deleteOnlyFromDrafts: true
       
       - name: Set Env
         run: |
